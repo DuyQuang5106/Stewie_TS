@@ -6,8 +6,10 @@ export default defineConfig({
   // added by `nest g library`.
   plugins: [tsconfigPaths()],
   test: {
+    setupFiles: ['./test/setup.mjs'],
     globals: true,
     root: './',
-    include: ['**/*.spec.ts'],
+    include: ['src/**/*.spec.ts', 'test/*.test.mjs'],
+    fileParallelism: false,
   },
 });
