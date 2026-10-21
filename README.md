@@ -34,6 +34,7 @@ bun run test:e2e
 
 Vitest executes the original unit test and the ported foundation tests. HTTP tests
 import compiled ESM from dist so Nest decorator metadata matches deployed code.
+The typecheck command builds first because e2e types also refer to compiled declarations.
 Integration tests run separately:
 
 ```powershell
