@@ -22,7 +22,9 @@ export interface ReadRequest {
     authorization?: string;
     cookie?: string;
     'content-length'?: string;
+    'x-timezone'?: string;
   };
+  jsonParseFailed?: boolean;
   user: CurrentUser;
   path: string;
 }
@@ -37,15 +39,19 @@ export function apiError(
       timestamp: new Date().toISOString().replace(/Z$/, ''),
       status,
       error:
-        status === 413
-          ? 'Payload Too Large'
-          : status === 409
-            ? 'Conflict'
-            : status === 403
-              ? 'Forbidden'
-              : status === 404
-                ? 'Not Found'
-                : 'Bad Request',
+        status === 422
+          ? 'Unprocessable Entity'
+          : status === 503
+            ? 'Service Unavailable'
+            : status === 413
+              ? 'Payload Too Large'
+              : status === 409
+                ? 'Conflict'
+                : status === 403
+                  ? 'Forbidden'
+                  : status === 404
+                    ? 'Not Found'
+                    : 'Bad Request',
       message,
       path,
       fieldErrors: {},

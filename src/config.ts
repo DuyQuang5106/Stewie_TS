@@ -4,6 +4,9 @@ export interface AppConfig {
   corsOrigins: string[];
   readApiEnabled: boolean;
   academicWriteApiEnabled: boolean;
+  vocabularyApiEnabled: boolean;
+  assessmentApiEnabled: boolean;
+  assessmentSchedulerEnabled: boolean;
   jwtSecret: string;
 }
 
@@ -23,6 +26,24 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const academicWriteApiEnabled = env.ACADEMIC_WRITE_API_ENABLED === 'true';
   if (academicWriteApiEnabled && !readApiEnabled)
     throw new Error('ACADEMIC_WRITE_API_ENABLED requires READ_API_ENABLED');
+  for (const key of [
+    'VOCABULARY_API_ENABLED',
+    'ASSESSMENT_API_ENABLED',
+    'ASSESSMENT_SCHEDULER_ENABLED',
+  ]) {
+    if (env[key] !== undefined && !['true', 'false'].includes(env[key]!))
+      throw new Error(key + ' must be true or false');
+    if (env[key] === 'true' && !readApiEnabled)
+      throw new Error(key + ' requires READ_API_ENABLED');
+  }
+  const vocabularyApiEnabled = env.VOCABULARY_API_ENABLED === 'true';
+  const assessmentApiEnabled = env.ASSESSMENT_API_ENABLED === 'true';
+  const assessmentSchedulerEnabled =
+    env.ASSESSMENT_SCHEDULER_ENABLED === 'true';
+  if (assessmentSchedulerEnabled && !assessmentApiEnabled)
+    throw new Error(
+      'ASSESSMENT_SCHEDULER_ENABLED requires ASSESSMENT_API_ENABLED',
+    );
   const jwtSecret = env.APP_JWTSECRET ?? '';
   if (
     readApiEnabled &&
@@ -83,6 +104,9 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     corsOrigins,
     readApiEnabled,
     academicWriteApiEnabled,
+    vocabularyApiEnabled,
+    assessmentApiEnabled,
+    assessmentSchedulerEnabled,
     jwtSecret,
   };
 }

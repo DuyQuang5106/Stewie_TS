@@ -31,11 +31,15 @@ export async function createApp() {
           request.path,
         );
       if (
-        (catalogWrite || workflowWrite) &&
+        (catalogWrite ||
+          workflowWrite ||
+          (['POST', 'PUT'].includes(request.method) &&
+            /^\/api\/(?:vocab|assessments)(?:\/|$)/.test(request.path))) &&
         (error as { type?: string })?.type === 'entity.parse.failed'
       ) {
         // Let the JWT guard run first, then preserve Java's unreadable-body response.
         request.body = null;
+        Object.assign(request, { jsonParseFailed: true });
         next();
       } else next(error);
     },

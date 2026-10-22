@@ -6,3 +6,8 @@ process.env.CORS_ALLOWED_ORIGINS = '';
 delete process.env.APP_JWTSECRET;
 
 process.env.ACADEMIC_WRITE_API_ENABLED = 'false';
+
+process.env.VOCABULARY_API_ENABLED = 'false';
+process.env.ASSESSMENT_API_ENABLED = 'false';
+
+process.env.ASSESSMENT_SCHEDULER_ENABLED = 'false';
