@@ -20,7 +20,7 @@ The service listens on port 3001 by default. Health routes:
 
 READ_API_ENABLED defaults to false. To enable migrated reads, configure
 READ_API_ENABLED=true and APP_JWTSECRET equal to Java's raw UTF-8 JWT secret.
-OAuth2, refresh/logout, business writes and migrations remain in the Java backend.
+OAuth2, refresh/logout and migrations remain in Java. Migrated writes for Topics/Skills/Tag groups/Tags and Stimuli/Question Banks/Questions require ACADEMIC_WRITE_API_ENABLED=true in addition to reads; the write flag defaults to false. Other business writes remain in Java.
 The frontend's CORS origin must be listed in CORS_ALLOWED_ORIGINS.
 
 ## Verification
@@ -45,7 +45,7 @@ bun run test:integration
 
 The Java baseline must run against the same disposable DB with dev-login enabled
 and the public test secret `read-api-parity-secret-at-least-32-bytes`. Its fixtures
-exercise 510 HTTP contract comparisons including role/ownership and public data
+exercise 982 HTTP contract comparisons (594 read, 121 catalog writes and 137 Stimuli/Banks writes, 130 question operations), with persisted-state checks including role/ownership and public data
 boundaries. Tests reject other read API DB names. Never use a normal local,
 staging or production database for integration fixtures.
 
@@ -91,3 +91,9 @@ question banks, author questions/versions and public question metadata. Nothing
 is automatically deployed and Java traffic routing remains unchanged.
 Cloudflare's existing Java Worker/Preview configuration is intentionally excluded.
 The old api-ts tree is retained until this import is reviewed and accepted.
+
+## Academic Content continuation
+
+Current contract and endpoint inventory: [docs/ACADEMIC_CONTENT_CONTRACT.md](docs/ACADEMIC_CONTENT_CONTRACT.md). Review queue/history reads, 14 catalog write routes and 9 Stimuli/Question Banks and 8 Question write routes are implemented. Review decisions and all four import/export routes are implemented. The parity suite asserts 1057 comparisons plus rollback/concurrency checks. See the contract for the retained concurrent-import limitation.
+
+Academic Content writes are opt-in. Use a dedicated development database and credentials that have the required write rights before enabling the flag. The application does not grant PostgreSQL privileges or migrate schema. See the contract for the tested Java error behavior.
