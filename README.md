@@ -1,114 +1,99 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Stewie TypeScript API
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+NestJS 12, TypeScript 6, ESM, Bun 1.4.2 for dependency management/build tooling,
+Node.js 24.14.0 for deployed execution. Existing starter controller/service and
+Vitest tests are retained. Migrated services do not change PostgreSQL schema.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Local setup (PowerShell)
 
-## Description
-
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Project setup
-
-```bash
-$ bun install
+```powershell
+bun install --frozen-lockfile
+Copy-Item .env.example .env
+# Edit .env for your local PostgreSQL; do not commit secrets.
+bun run start:dev
 ```
 
-## Compile and run the project
+Bun loads the local .env for commands it launches. Production startup is
+`bun run start:prod`, which runs compiled ESM with Node and an optional .env.
+The service listens on port 3001 by default. Health routes:
+`/health/live` (process) and `/health/ready` (PostgreSQL SELECT 1).
 
-```bash
-# development
-$ bun run start
+READ_API_ENABLED defaults to false. To enable migrated reads, configure
+READ_API_ENABLED=true and APP_JWTSECRET equal to Java's raw UTF-8 JWT secret.
+OAuth2, refresh/logout and migrations remain in Java. Migrated writes for Topics/Skills/Tag groups/Tags and Stimuli/Question Banks/Questions require ACADEMIC_WRITE_API_ENABLED=true in addition to reads; the write flag defaults to false. Other business writes remain in Java.
+The frontend's CORS origin must be listed in CORS_ALLOWED_ORIGINS.
 
-# watch mode
-$ bun run start:dev
+## Verification
 
-# production mode
-$ bun run start:prod
+```powershell
+bun run typecheck
+bun run lint
+bun run test
+bun run test:e2e
 ```
 
-## Run tests
+Vitest executes the original unit test and the ported foundation tests. HTTP tests
+import compiled ESM from dist so Nest decorator metadata matches deployed code.
+The typecheck command builds first because e2e types also refer to compiled declarations.
+Integration tests run separately:
 
-```bash
-# unit tests
-$ bun run test
-
-# e2e tests
-$ bun run test:e2e
-
-# test coverage
-$ bun run test:cov
+```powershell
+$env:READ_API_TEST_DATABASE_URL = 'postgresql://USER:PASSWORD@localhost:55442/stiu_read_api_test'
+$env:JAVA_BASE_URL = 'http://127.0.0.1:18081'
+bun run test:integration
 ```
 
-## Deployment
+The Java baseline must run against the same disposable DB with dev-login enabled
+and the public test secret `read-api-parity-secret-at-least-32-bytes`. Its fixtures
+exercise 982 HTTP contract comparisons (594 read, 121 catalog writes and 137 Stimuli/Banks writes, 130 question operations), with persisted-state checks including role/ownership and public data
+boundaries. Tests reject other read API DB names. Never use a normal local,
+staging or production database for integration fixtures.
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+For isolated pool failure/recovery tests, set TEST_DATABASE_URL to a disposable
+`stiu_ci` or `stiu_foundation_test` database and run test:integration. The suites
+are independent; absent environment settings skip the corresponding integration
+suite. The default test command covers unavailable DB behavior without PostgreSQL.
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+## Docker
 
-```bash
-$ bun install -g @nestjs/mau
-$ mau deploy
+```powershell
+docker build -t stiu-api-ts:ci .
+node test/docker-smoke.cjs
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+The smoke test creates and removes its own PostgreSQL/container/network. Docker
+build uses Bun's frozen lockfile, a Node runtime and non-root user. No .env is copied.
+On Windows, a container reaches a host PostgreSQL through host.docker.internal,
+not localhost. Supply container configuration separately from local .env.
 
-## Observability
+## CI and Java baseline
 
-In production applications, observability is essential for understanding how your system behaves, detecting issues early, and maintaining reliable performance.
+The verify job runs install, typecheck, lint, unit/foundation/e2e tests, PostgreSQL
+pool tests and Docker smoke. The parity job checks out a pinned Java commit from
+`leedoekahn401/stiu_base` (see `.github/workflows/ci.yml`).
 
-[NestJS Observe](https://observe.nestjs.com) automatically instruments your NestJS application, giving you deep visibility into your system with minimal setup:
+That Java repository is private. Add the Actions secret **JAVA_BASELINE_READ_TOKEN**
+with read-only access to that repository before expecting the parity job to pass.
+Use a dedicated fine-grained token or suitable GitHub App token, not a credential
+committed into source. Checkout does not persist that credential. The normal
+GITHUB_TOKEN in this repo does not grant access to another private repository.
+No Java source is copied into this public repository or uploaded as an artifact.
 
-- **Distributed tracing:** Follow requests across services and understand how they flow through your system.
-- **Waterfall analysis:** Visualize request execution and identify slow operations, bottlenecks, and unexpected delays.
-- **Performance analysis:** Analyze application performance in real time and quickly pinpoint areas that need optimization.
-- **Metrics:** Track key application and infrastructure metrics to understand system health and performance trends.
-- **Logging:** Centralize and correlate logs with traces and other telemetry to make debugging easier.
-- **Error tracking:** Detect errors quickly and investigate their root causes with the surrounding context.
-- **SLA monitoring:** Track service-level objectives and identify when your application is approaching or exceeding defined thresholds.
-- **Alarms and alerts:** Set up alerts for critical errors, performance degradation, SLA violations, and other anomalies so your team can react quickly.
+## Migration provenance
 
-## Resources
+Source: `stiu_base/api-ts` at commit daeca46883a45de2d745be3f69fdd2713033808d.
+Java baseline: 4b52a4c260a57b288d58048a96565e93ba554b4f.
+Historical source docs are in docs/migration; their npm paths and old CI results
+are source history, not instructions/results for this repository.
 
-Check out a few resources that may come in handy when working with NestJS:
+Migrated: JWT-compatible reads for Identity, classifications, tags, stimuli,
+question banks, author questions/versions and public question metadata. Nothing
+is automatically deployed and Java traffic routing remains unchanged.
+Cloudflare's existing Java Worker/Preview configuration is intentionally excluded.
+The old api-ts tree is retained until this import is reviewed and accepted.
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Auto-instrument your application with [NestJS Observer](https://observer.nestjs.com). Distributed tracing, metrics, and logging made easy. Error tracking and performance monitoring for your NestJS applications.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+## Academic Content continuation
 
-## Support
+Current contract and endpoint inventory: [docs/ACADEMIC_CONTENT_CONTRACT.md](docs/ACADEMIC_CONTENT_CONTRACT.md). Review queue/history reads, 14 catalog write routes and 9 Stimuli/Question Banks and 8 Question write routes are implemented. Review decisions and all four import/export routes are implemented. The parity suite asserts 1057 comparisons plus rollback/concurrency checks. See the contract for the retained concurrent-import limitation.
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+Academic Content writes are opt-in. Use a dedicated development database and credentials that have the required write rights before enabling the flag. The application does not grant PostgreSQL privileges or migrate schema. See the contract for the tested Java error behavior.
