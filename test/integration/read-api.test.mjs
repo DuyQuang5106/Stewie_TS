@@ -1,3 +1,4 @@
+const boundedFetch = (url, options = {}) => fetch(url, { ...options, signal: AbortSignal.timeout(15000) });
 import { test } from 'vitest';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
@@ -27,14 +28,14 @@ test('Java/TypeScript read API contract parity', {
   try {
     let started = false;
     for (let i = 0; i < 120; i++) {
-      try { if ((await fetch(`${baseline}/actuator/health`)).ok) { started = true; break; } } catch {}
+      try { if ((await boundedFetch(`${baseline}/actuator/health`)).ok) { started = true; break; } } catch {}
       await new Promise(resolve => setTimeout(resolve, 500));
     }
     assert.ok(started, 'Java baseline must be running against the same isolated DB');
     await db.query("UPDATE users SET deleted_at = NULL WHERE email LIKE 'parity.%@stewiesat.test'");
     for (const table of ['topic', 'skill']) await db.query(`DELETE FROM ${table} WHERE slug LIKE 'parity-%'`);
     for (const role of ['ADMIN', 'TEACHER', 'STUDENT']) {
-      const response = await fetch(`${baseline}/api/auth/dev-login?email=parity.${role.toLowerCase()}@stewiesat.test&role=${role}`, { method: 'POST' });
+      const response = await boundedFetch(`${baseline}/api/auth/dev-login?email=parity.${role.toLowerCase()}@stewiesat.test&role=${role}`, { method: 'POST' });
       assert.equal(response.status, 200);
       const { accessToken } = await response.json();
       assert.equal(jwt.verify(accessToken, secret, { algorithms: ['HS256'] }).roles[0], role);
@@ -44,12 +45,12 @@ test('Java/TypeScript read API contract parity', {
     await db.query("UPDATE users SET last_access_at = '2026-01-02 03:04:05.123456', phone_number = '+84900009999' WHERE id = $1", [admin.id]);
     for (const resource of ['topics', 'skills']) {
       for (const suffix of ['alpha', 'beta']) {
-        const response = await fetch(`${baseline}/api/academic/${resource}`, { method: 'POST',
+        const response = await boundedFetch(`${baseline}/api/academic/${resource}`, { method: 'POST',
           headers: { Authorization: `Bearer ${admin.token}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({ name: `Parity ${suffix}`, slug: `parity-${resource}-${suffix}` }) });
         assert.equal(response.status, 201);
         const item = await response.json();
-        if (suffix === 'beta') assert.equal((await fetch(`${baseline}/api/academic/${resource}/${item.id}/archive`, {
+        if (suffix === 'beta') assert.equal((await boundedFetch(`${baseline}/api/academic/${resource}/${item.id}/archive`, {
           method: 'POST', headers: { Authorization: `Bearer ${admin.token}` },
         })).status, 200);
       }
@@ -66,8 +67,8 @@ test('Java/TypeScript read API contract parity', {
       return value;
     };
     async function compare(path, headers = {}) {
-      const a = await fetch(baseline + path, { headers });
-      const b = await fetch(migrated + path, { headers });
+      const a = await boundedFetch(baseline + path, { headers });
+      const b = await boundedFetch(migrated + path, { headers });
       assert.equal(b.status, a.status, `${path} HTTP status`);
       let actual = normalize(await b.json());
       let expected = normalize(await a.json());
@@ -117,7 +118,7 @@ test('Java/TypeScript read API contract parity', {
       jwt.sign({ sub: admin.id, nbf: Math.floor(Date.now() / 1000) + 60 }, secret),
     ];
     for (const token of invalid) await compare('/api/users/me', { Authorization: `Bearer ${token}` });
-    const algorithmResponse = await fetch(migrated + '/api/users/me', { headers: { Authorization: `Bearer ${invalid[3]}` } });
+    const algorithmResponse = await boundedFetch(migrated + '/api/users/me', { headers: { Authorization: `Bearer ${invalid[3]}` } });
     assert.equal(algorithmResponse.status, 401);
     await compare('/api/users/me', { Authorization: 'Bearer malformed', Cookie: `token=${admin.token}` });
     await compare('/api/academic/topics', { Authorization: `Bearer ${jwt.sign({ sub: student.id, roles: ['ADMIN'] }, secret)}` });
@@ -125,13 +126,25 @@ test('Java/TypeScript read API contract parity', {
       await compare(path, { Authorization: `Bearer ${jwt.sign({ sub: student.id, roles: ['ADMIN'] }, secret)}` });
     }
     await require('../academic-parity.cjs')({ baseline, migrated, identities, compare, db });
+    const writeCompared = await require('../catalog-write-parity.cjs')({ baseline, migrated, identities, db, app, DatabaseService });
+    assert.equal(writeCompared, 121, 'Catalog write comparisons must all execute');
+    console.log(`Compared ${writeCompared} catalog write contracts and database effects`);
+    const resourceCompared = await require('../resource-write-parity.cjs')({ baseline, migrated, identities, db });
+    assert.equal(resourceCompared, 137, 'Resource write comparisons must all execute');
+    process.stdout.write(`Compared ${resourceCompared} resource write contracts and database effects\n`);
+    const questionCompared=await require('../question-write-parity.cjs')({baseline,migrated,identities,db,app,DatabaseService});
+    assert.equal(questionCompared,130,'Question comparisons must all execute');
+    process.stdout.write(`Compared ${questionCompared} question aggregate contracts\n`);
+    const workflows=await require('../workflow-parity.cjs')({baseline,migrated,identities,db});
+    assert.equal(workflows,75,'Workflow comparisons must all execute');
+    console.log('Compared '+workflows+' review/import/export contracts');
     await db.query('UPDATE users SET deleted_at = NOW() WHERE id = $1', [student.id]);
     await compare('/api/users/me', { Authorization: `Bearer ${student.token}` });
     for (const path of [`/api/users/${student.id}`, '/api/users/by-email?email=parity.student%40stewiesat.test', '/api/users/all?sort=id,asc']) {
       await compare(path, { Authorization: `Bearer ${admin.token}` });
     }
     await assert.rejects(app.get(DatabaseService).readSnapshot(client => client.query('DELETE FROM topic')), error => error.code === '25006');
-    assert.equal(compared, 510, 'All imported HTTP contract cases must execute');
+    assert.equal(compared, 594, 'All imported HTTP contract cases must execute');
     console.log(`Compared ${compared} Java/TypeScript HTTP contracts; verified HS256-only policy and read-only transactions`);
   } finally {
     if (app) await app.close();

@@ -13,11 +13,15 @@ test('rejects invalid config without including credentials in errors', () => {
     { DATABASE_URL: 'postgres://localhost/db', CORS_ALLOWED_ORIGINS: '*' },
     { DATABASE_URL: 'postgres://localhost/db', READ_API_ENABLED: 'true' },
     { DATABASE_URL: 'postgres://localhost/db', READ_API_ENABLED: 'yes' },
+    { DATABASE_URL: 'postgres://localhost/db', ACADEMIC_WRITE_API_ENABLED: 'yes' },
+    { DATABASE_URL: 'postgres://localhost/db', ACADEMIC_WRITE_API_ENABLED: 'true' },
     { DATABASE_URL: 'postgres://localhost/db', READ_API_ENABLED: 'true', APP_JWTSECRET: ' '.repeat(32) },
   ]) {
     assert.throws(() => readConfig(env), error => !error.message.includes('password'));
   }
   assert.equal(readConfig({ DATABASE_URL: 'postgres://localhost/db' }).port, 3001);
+  assert.equal(readConfig({ DATABASE_URL: 'postgres://localhost/db' }).academicWriteApiEnabled, false);
+  assert.equal(readConfig({ DATABASE_URL: 'postgres://localhost/db', READ_API_ENABLED: 'true', ACADEMIC_WRITE_API_ENABLED: 'true', APP_JWTSECRET: 'test-secret-at-least-thirty-two-bytes' }).academicWriteApiEnabled, true);
 });
 
 test('HTTP liveness, DB readiness, CORS and unknown routes', async () => {

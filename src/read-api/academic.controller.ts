@@ -3,13 +3,16 @@ import type { ReadRequest } from './auth.guard.js';
 import { JavaJwtGuard } from './auth.guard.js';
 import { ReadApiErrorFilter } from './error.filter.js';
 import { AcademicReadService } from './academic.service.js';
+import { ReviewReadService } from './review.service.js';
 import { QuestionReadService } from './question.service.js';
 
 @Controller('api/academic')
 @UseGuards(JavaJwtGuard)
 @UseFilters(ReadApiErrorFilter)
 export class AcademicReadController {
-  constructor(private readonly academic: AcademicReadService, private readonly questions: QuestionReadService) {}
+  constructor(private readonly academic: AcademicReadService, private readonly questions: QuestionReadService, private readonly reviews: ReviewReadService) {}
+  @Get('question-reviews') reviewQueue(@Req() r: ReadRequest, @Query() q: Record<string, unknown>) { return this.reviews.queue(r, q); }
+  @Get('question-versions/:versionId/reviews') reviewHistory(@Req() r: ReadRequest, @Param('versionId') id: string) { return this.reviews.history(r, id); }
   @Get('tag-groups') groups(@Req() r: ReadRequest) { return this.academic.groups(r); }
   @Get('tag-groups/:id') group(@Req() r: ReadRequest, @Param('id') id: string) { return this.academic.groups(r, id); }
   @Get('tags/:id') tag(@Req() r: ReadRequest, @Param('id') id: string) { return this.academic.tags(r, id, false); }

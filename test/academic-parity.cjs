@@ -1,3 +1,4 @@
+const boundedFetch = (url, options = {}) => fetch(url, { ...options, signal: AbortSignal.timeout(15000) });
 const assert = require('node:assert/strict');
 
 module.exports = async function academicParity({ baseline, migrated, identities, compare, db }) {
@@ -6,7 +7,7 @@ module.exports = async function academicParity({ baseline, migrated, identities,
   const root = '/api/academic';
   const headers = user => ({ Authorization: `Bearer ${user.token}` });
   async function write(path, body, user = admin, status = 201) {
-    const response = await fetch(baseline + root + path, { method: 'POST', headers: { ...headers(user), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const response = await boundedFetch(baseline + root + path, { method: 'POST', headers: { ...headers(user), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     const json = await response.json();
     assert.equal(response.status, status, `Fixture ${path}: ${JSON.stringify(json)}`);
     return json;
@@ -20,7 +21,7 @@ module.exports = async function academicParity({ baseline, migrated, identities,
   const system = await write('/question-banks', { name: 'System bank ' + suffix, scope: 'SYSTEM' });
   const foreign = await write('/question-banks', { name: 'Foreign bank ' + suffix, scope: 'TEACHER', ownerAccountId: teacher.id });
   // The admin-created bank still belongs to teacher; use another teacher for real ownership denial.
-  const otherLogin = await fetch(`${baseline}/api/auth/dev-login?email=academic.other@stewiesat.test&role=TEACHER`, { method: 'POST' });
+  const otherLogin = await boundedFetch(`${baseline}/api/auth/dev-login?email=academic.other@stewiesat.test&role=TEACHER`, { method: 'POST' });
   const otherToken = (await otherLogin.json()).accessToken;
   const other = { token: otherToken };
   const foreignOwned = await write('/question-banks', { name: 'Other teacher bank ' + suffix, scope: 'TEACHER' }, other);
@@ -85,8 +86,40 @@ module.exports = async function academicParity({ baseline, migrated, identities,
       for (const query of filters) await compare(root + path + '?' + query, headers(user));
     }
   }
+  const versionRows = (await db.query('SELECT id FROM question_version WHERE question_id = $1 ORDER BY version_number DESC', [ownQuestion.id])).rows;
+  const reviewVersion = versionRows[0].id;
+  await write(`/question-versions/${reviewVersion}/reviews`, { status: 'CHANGES_REQUESTED', comment: 'Please clarify the prompt' }, admin);
+  await write(`/question-versions/${reviewVersion}/reviews`, { status: 'APPROVED', comment: 'Ready' }, admin);
+  for (const user of [admin, teacher, student, other]) {
+    for (const query of ['', '?status=PENDING&sort=publishedAt,asc', '?status=APPROVED&sort=versionNumber,desc',
+      '?status=CHANGES_REQUESTED&sort=reviewStatus,asc', '?status=invalid', '?status=', '?sort=id,asc',
+      '?sort=publishedAt,asc&size=1&page=1', '?page=99&size=1', '?page=-1&size=0']) {
+      await compare(`${root}/question-reviews${query}`, headers(user));
+    }
+    for (const id of [reviewVersion, versionRows[1].id, missing, 'invalid', '1-1-1-1-1']) {
+      await compare(`${root}/question-versions/${id}/reviews`, headers(user));
+    }
+  }
+  for (const user of [admin, teacher, student, other]) {
+    for (const query of ['?status=%20APPROVED%20', '?status=%20', '?status=approved', '?sort=reviewStatus,desc,ignorecase&sort=versionNumber,asc']) {
+      await compare(`${root}/question-reviews${query}`, headers(user));
+    }
+  }
+  await db.query('UPDATE question SET owner_id = NULL WHERE id = $1', [ownQuestion.id]);
+  for (const user of [teacher, admin]) await compare(`${root}/question-versions/${reviewVersion}/reviews`, headers(user));
+  await db.query('UPDATE question SET owner_id = $1, deleted_at = NOW() WHERE id = $2', [teacher.id, ownQuestion.id]);
+  try {
+    for (const user of [teacher, admin]) {
+      await compare(`${root}/question-versions/${reviewVersion}/reviews`, headers(user));
+      await compare(`${root}/question-reviews?status=APPROVED&sort=publishedAt,asc`, headers(user));
+    }
+  } finally {
+    await db.query('UPDATE question SET deleted_at = NULL WHERE id = $1', [ownQuestion.id]);
+  }
+  await compare(`${root}/question-reviews`);
+  await compare(`${root}/question-versions/${reviewVersion}/reviews`);
   for (const resource of ['tag-groups', 'stimuli', 'question-banks', 'questions', 'public/questions']) await compare(root + '/' + resource);
-  const response = await fetch(`${migrated}${root}/public/questions?keyword=Public`, { headers: headers(student) });
+  const response = await boundedFetch(`${migrated}${root}/public/questions?keyword=Public`, { headers: headers(student) });
   const json = await response.json();
   assert.ok(json.content.length > 0);
   for (const row of json.content) for (const field of ['content', 'prompt', 'answer', 'explanation', 'ownerAccountId']) assert.ok(!(field in row));

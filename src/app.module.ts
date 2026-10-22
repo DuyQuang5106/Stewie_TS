@@ -1,3 +1,16 @@
+import { AcademicWorkflowService } from './academic-write/workflow.service.js';
+import {
+  AcademicWorkflowWriteController,
+  AcademicWorkflowReadController,
+} from './academic-write/workflow.controller.js';
+import { QuestionWriteController } from './academic-write/question.controller.js';
+import { QuestionWriteService } from './academic-write/question.service.js';
+import { ResourceWriteController } from './academic-write/resource.controller.js';
+import { ResourceWriteService } from './academic-write/resource.service.js';
+import { CatalogWriteController } from './academic-write/catalog.controller.js';
+import { CatalogWriteService } from './academic-write/catalog.service.js';
+import { AcademicWriteGuard } from './academic-write/write.guard.js';
+import { ReviewReadService } from './read-api/review.service.js';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { Module } from '@nestjs/common';
@@ -11,5 +24,32 @@ import { AcademicReadController } from './read-api/academic.controller.js';
 import { AcademicReadService } from './read-api/academic.service.js';
 import { QuestionReadService } from './read-api/question.service.js';
 
-@Module({ controllers: [AppController, HealthController, ReadController, AcademicReadController], providers: [AppService, DatabaseService, JavaJwtGuard, ClassificationReadService, IdentityReadService, AcademicReadService, QuestionReadService] })
+@Module({
+  controllers: [
+    AcademicWorkflowWriteController,
+    AcademicWorkflowReadController,
+    QuestionWriteController,
+    ResourceWriteController,
+    CatalogWriteController,
+    AppController,
+    HealthController,
+    ReadController,
+    AcademicReadController,
+  ],
+  providers: [
+    AcademicWorkflowService,
+    QuestionWriteService,
+    ResourceWriteService,
+    CatalogWriteService,
+    AcademicWriteGuard,
+    AppService,
+    DatabaseService,
+    JavaJwtGuard,
+    ClassificationReadService,
+    IdentityReadService,
+    AcademicReadService,
+    QuestionReadService,
+    ReviewReadService,
+  ],
+})
 export class AppModule {}

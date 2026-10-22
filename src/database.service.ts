@@ -17,20 +17,43 @@ export class DatabaseService implements OnApplicationShutdown {
   });
 
   constructor() {
-    this.pool.on('error', () => this.logger.error('PostgreSQL pool connection failed'));
+    this.pool.on('error', () =>
+      this.logger.error('PostgreSQL pool connection failed'),
+    );
   }
 
   async ping(): Promise<void> {
     try {
       await this.pool.query('SELECT 1');
     } catch {
-      this.logger.warn('PostgreSQL readiness check failed; verify availability and credentials');
+      this.logger.warn(
+        'PostgreSQL readiness check failed; verify availability and credentials',
+      );
       throw new Error('Database unavailable');
     }
   }
 
   async onApplicationShutdown(): Promise<void> {
     await this.pool.end();
+  }
+
+  async writeTransaction<T>(
+    work: (client: PoolClient) => Promise<T>,
+  ): Promise<T> {
+    if (!readConfig().academicWriteApiEnabled)
+      throw new Error('Academic writes are disabled');
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const result = await work(client);
+      await client.query('COMMIT');
+      return result;
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async readSnapshot<T>(work: (client: PoolClient) => Promise<T>): Promise<T> {
