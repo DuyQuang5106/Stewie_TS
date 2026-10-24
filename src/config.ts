@@ -7,6 +7,7 @@ export interface AppConfig {
   vocabularyApiEnabled: boolean;
   assessmentApiEnabled: boolean;
   assessmentSchedulerEnabled: boolean;
+  analyticsApiEnabled: boolean;
   jwtSecret: string;
 }
 
@@ -30,6 +31,7 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     'VOCABULARY_API_ENABLED',
     'ASSESSMENT_API_ENABLED',
     'ASSESSMENT_SCHEDULER_ENABLED',
+    'ANALYTICS_API_ENABLED',
   ]) {
     if (env[key] !== undefined && !['true', 'false'].includes(env[key]!))
       throw new Error(key + ' must be true or false');
@@ -107,6 +109,7 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     vocabularyApiEnabled,
     assessmentApiEnabled,
     assessmentSchedulerEnabled,
+    analyticsApiEnabled: env.ANALYTICS_API_ENABLED === 'true',
     jwtSecret,
   };
 }
