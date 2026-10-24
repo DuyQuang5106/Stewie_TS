@@ -6,7 +6,7 @@ import { apiError } from '../read-api/auth.guard.js';
 import { academicUuid, requireAuthor } from '../read-api/academic.service.js';
 import { DatabaseService } from '../database.service.js';
 import { QuestionWriteService } from './question.service.js';
-import { javaTrim } from './question.binding.js';
+import { javaTrim, javaIsBlank } from './question.binding.js';
 import type { JsonRecord } from './question.binding.js';
 import { importBody, reviewBody } from './workflow.binding.js';
 const localNow = () => {
@@ -37,10 +37,7 @@ export class AcademicWorkflowService {
         request.path,
       );
     const comment =
-      body.comment === null ||
-      /^[\u0009-\u000d\u001c-\u0020\u1680\u2000-\u2006\u2008-\u200a\u2028\u2029\u205f\u3000]*$/.test(
-        body.comment,
-      )
+      body.comment === null || javaIsBlank(body.comment)
         ? null
         : javaTrim(body.comment);
     if (body.status === 'CHANGES_REQUESTED' && !comment)

@@ -90,7 +90,7 @@ jobs:
           SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_SECRET: dummy-google-client-secret
           READ_API_TEST_DATABASE_URL: postgresql://postgres:read-api-test-only@localhost:5432/stiu_read_api_test
         run: |
-          java -jar java-baseline/demo1/target/demo1-0.0.1-SNAPSHOT.jar --server.port=18081 --app.auth.dev-login.enabled=true > "$RUNNER_TEMP/java-baseline.log" 2>&1 &
+          java -jar java-baseline/demo1/target/demo1-0.0.1-SNAPSHOT.jar --server.port=18081 --app.auth.dev-login.enabled=true --app.dictionary.base-url=http://127.0.0.1:18082 > "$RUNNER_TEMP/java-baseline.log" 2>&1 &
           baseline_pid=$!
           trap 'kill "$baseline_pid" 2>/dev/null || true' EXIT
           bun run test:integration

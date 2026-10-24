@@ -8,50 +8,114 @@ const { createApp } = await import('../dist/app.js');
 test('rejects invalid config without including credentials in errors', () => {
   for (const env of [
     {},
+    { DATABASE_URL: 'postgres://localhost/db', VOCABULARY_API_ENABLED: 'yes' },
+    { DATABASE_URL: 'postgres://localhost/db', ASSESSMENT_API_ENABLED: 'true' },
+    {
+      DATABASE_URL: 'postgres://localhost/db',
+      READ_API_ENABLED: 'true',
+      APP_JWTSECRET: 'test-secret-at-least-thirty-two-bytes',
+      ASSESSMENT_SCHEDULER_ENABLED: 'true',
+    },
     { DATABASE_URL: 'jdbc:postgresql://localhost/db' },
     { DATABASE_URL: 'postgres://secret:password@localhost/db', PORT: 'NaN' },
     { DATABASE_URL: 'postgres://localhost/db', CORS_ALLOWED_ORIGINS: '*' },
     { DATABASE_URL: 'postgres://localhost/db', READ_API_ENABLED: 'true' },
     { DATABASE_URL: 'postgres://localhost/db', READ_API_ENABLED: 'yes' },
-    { DATABASE_URL: 'postgres://localhost/db', ACADEMIC_WRITE_API_ENABLED: 'yes' },
-    { DATABASE_URL: 'postgres://localhost/db', ACADEMIC_WRITE_API_ENABLED: 'true' },
-    { DATABASE_URL: 'postgres://localhost/db', READ_API_ENABLED: 'true', APP_JWTSECRET: ' '.repeat(32) },
+    {
+      DATABASE_URL: 'postgres://localhost/db',
+      ACADEMIC_WRITE_API_ENABLED: 'yes',
+    },
+    {
+      DATABASE_URL: 'postgres://localhost/db',
+      ACADEMIC_WRITE_API_ENABLED: 'true',
+    },
+    {
+      DATABASE_URL: 'postgres://localhost/db',
+      READ_API_ENABLED: 'true',
+      APP_JWTSECRET: ' '.repeat(32),
+    },
   ]) {
-    assert.throws(() => readConfig(env), error => !error.message.includes('password'));
+    assert.throws(
+      () => readConfig(env),
+      (error) => !error.message.includes('password'),
+    );
   }
-  assert.equal(readConfig({ DATABASE_URL: 'postgres://localhost/db' }).port, 3001);
-  assert.equal(readConfig({ DATABASE_URL: 'postgres://localhost/db' }).academicWriteApiEnabled, false);
-  assert.equal(readConfig({ DATABASE_URL: 'postgres://localhost/db', READ_API_ENABLED: 'true', ACADEMIC_WRITE_API_ENABLED: 'true', APP_JWTSECRET: 'test-secret-at-least-thirty-two-bytes' }).academicWriteApiEnabled, true);
+  assert.equal(
+    readConfig({ DATABASE_URL: 'postgres://localhost/db' }).port,
+    3001,
+  );
+  assert.equal(
+    readConfig({ DATABASE_URL: 'postgres://localhost/db' })
+      .academicWriteApiEnabled,
+    false,
+  );
+  assert.equal(
+    readConfig({
+      DATABASE_URL: 'postgres://localhost/db',
+      READ_API_ENABLED: 'true',
+      ACADEMIC_WRITE_API_ENABLED: 'true',
+      APP_JWTSECRET: 'test-secret-at-least-thirty-two-bytes',
+    }).academicWriteApiEnabled,
+    true,
+  );
 });
 
 test('HTTP liveness, DB readiness, CORS and unknown routes', async () => {
   const previous = process.env.DATABASE_URL;
-  process.env.DATABASE_URL = process.env.TEST_DATABASE_URL ?? 'postgres://test:test@127.0.0.1:1/test';
+  process.env.DATABASE_URL =
+    process.env.TEST_DATABASE_URL ?? 'postgres://test:test@127.0.0.1:1/test';
   process.env.CORS_ALLOWED_ORIGINS = 'http://localhost:8081';
   const app = await createApp();
   try {
     await app.listen(0, '127.0.0.1');
     const base = await app.getUrl();
-    const live = await fetch(`${base}/health/live`, { headers: { Origin: 'http://localhost:8081' } });
+    const live = await fetch(`${base}/health/live`, {
+      headers: { Origin: 'http://localhost:8081' },
+    });
     assert.equal(live.status, 200);
     assert.deepEqual(await live.json(), { status: 'ok' });
-    assert.equal(live.headers.get('access-control-allow-origin'), 'http://localhost:8081');
-    const blocked = await fetch(`${base}/health/live`, { headers: { Origin: 'https://untrusted.example' } });
+    assert.equal(
+      live.headers.get('access-control-allow-origin'),
+      'http://localhost:8081',
+    );
+    const blocked = await fetch(`${base}/health/live`, {
+      headers: { Origin: 'https://untrusted.example' },
+    });
     assert.equal(blocked.headers.get('access-control-allow-origin'), null);
-    const preflight = await fetch(`${base}/health/live`, { method: 'OPTIONS', headers: {
-      Origin: 'http://localhost:8081',
-      'Access-Control-Request-Method': 'GET',
-      'Access-Control-Request-Headers': 'authorization,content-type',
-    } });
+    const preflight = await fetch(`${base}/health/live`, {
+      method: 'OPTIONS',
+      headers: {
+        Origin: 'http://localhost:8081',
+        'Access-Control-Request-Method': 'GET',
+        'Access-Control-Request-Headers': 'authorization,content-type',
+      },
+    });
     assert.equal(preflight.status, 204);
-    assert.equal(preflight.headers.get('access-control-allow-credentials'), 'true');
-    assert.match(preflight.headers.get('access-control-allow-headers'), /authorization/);
+    assert.equal(
+      preflight.headers.get('access-control-allow-credentials'),
+      'true',
+    );
+    assert.match(
+      preflight.headers.get('access-control-allow-headers'),
+      /authorization/,
+    );
     const ready = await fetch(`${base}/health/ready`);
     assert.equal(ready.status, process.env.TEST_DATABASE_URL ? 200 : 503);
-    assert.deepEqual(await ready.json(), process.env.TEST_DATABASE_URL
-      ? { status: 'ok', database: 'up' }
-      : { status: 'unavailable', database: 'down' });
+    assert.deepEqual(
+      await ready.json(),
+      process.env.TEST_DATABASE_URL
+        ? { status: 'ok', database: 'up' }
+        : { status: 'unavailable', database: 'down' },
+    );
     assert.equal((await fetch(`${base}/api/users/me`)).status, 404);
+    assert.equal((await fetch(`${base}/api/vocab/playlists`)).status, 404);
+    assert.equal((await fetch(`${base}/api/assessments`)).status, 404);
+    const { DatabaseService } = await import('../dist/database.service.js');
+    for (const domain of ['vocabulary', 'assessment'])
+      await assert.rejects(
+        app.get(DatabaseService).writeTransaction(async () => {}, domain),
+        /writes are disabled/,
+      );
   } finally {
     await app.close();
     if (previous === undefined) delete process.env.DATABASE_URL;
@@ -65,46 +129,62 @@ test('global validation rejects invalid DTO and unexpected properties', async ()
   const { IsString } = require('class-validator');
   class ExampleRequest {}
   IsString()(ExampleRequest.prototype, 'name');
-  const pipe = new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true });
+  const pipe = new ValidationPipe({
+    whitelist: true,
+    forbidNonWhitelisted: true,
+    transform: true,
+  });
   const metadata = { type: 'body', metatype: ExampleRequest };
   for (const body of [{ name: 123 }, { name: 'valid', unexpected: true }]) {
-    await assert.rejects(pipe.transform(body, metadata), error => error.getStatus() === 400);
+    await assert.rejects(
+      pipe.transform(body, metadata),
+      (error) => error.getStatus() === 400,
+    );
   }
-  assert.equal((await pipe.transform({ name: 'valid' }, metadata)).name, 'valid');
+  assert.equal(
+    (await pipe.transform({ name: 'valid' }, metadata)).name,
+    'valid',
+  );
 });
 
 test('invalid startup exits with JSON error and no credentials', async () => {
   const { spawnSync } = require('node:child_process');
   const result = spawnSync(process.execPath, ['dist/main.js'], {
-    env: { ...process.env, DATABASE_URL: 'invalid-secret-value' }, encoding: 'utf8', timeout: 5000,
+    env: { ...process.env, DATABASE_URL: 'invalid-secret-value' },
+    encoding: 'utf8',
+    timeout: 5000,
   });
   assert.equal(result.status, 1);
   const lines = (result.stdout + result.stderr).trim().split(/\r?\n/);
-  assert.ok(lines.some(line => JSON.parse(line).level === 'error'));
+  assert.ok(lines.some((line) => JSON.parse(line).level === 'error'));
   assert.ok(!lines.join('').includes('invalid-secret-value'));
 });
 
-test('unresponsive PostgreSQL handshake times out instead of hanging', { timeout: 10000 }, async () => {
-  const net = require('node:net');
-  const sockets = new Set();
-  const server = net.createServer(socket => {
-    sockets.add(socket);
-    socket.on('close', () => sockets.delete(socket));
-    socket.on('error', () => {});
-  });
-  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-  process.env.DATABASE_URL = `postgres://test:test@127.0.0.1:${server.address().port}/stiu_ci`;
-  const app = await createApp();
-  try {
-    await app.listen(0, '127.0.0.1');
-    const started = Date.now();
-    const result = await fetch(`${await app.getUrl()}/health/ready`);
-    assert.equal(result.status, 503);
-    assert.ok(Date.now() - started < 5000);
-  } finally {
-    await app.close();
-    for (const socket of sockets) socket.destroy();
-    await new Promise(resolve => server.close(resolve));
-    delete process.env.DATABASE_URL;
-  }
-});
+test(
+  'unresponsive PostgreSQL handshake times out instead of hanging',
+  { timeout: 10000 },
+  async () => {
+    const net = require('node:net');
+    const sockets = new Set();
+    const server = net.createServer((socket) => {
+      sockets.add(socket);
+      socket.on('close', () => sockets.delete(socket));
+      socket.on('error', () => {});
+    });
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+    process.env.DATABASE_URL = `postgres://test:test@127.0.0.1:${server.address().port}/stiu_ci`;
+    const app = await createApp();
+    try {
+      await app.listen(0, '127.0.0.1');
+      const started = Date.now();
+      const result = await fetch(`${await app.getUrl()}/health/ready`);
+      assert.equal(result.status, 503);
+      assert.ok(Date.now() - started < 5000);
+    } finally {
+      await app.close();
+      for (const socket of sockets) socket.destroy();
+      await new Promise((resolve) => server.close(resolve));
+      delete process.env.DATABASE_URL;
+    }
+  },
+);

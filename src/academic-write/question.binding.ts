@@ -10,6 +10,18 @@ export const javaTrim = (value: string) => {
   while (b > a && value.charCodeAt(b - 1) <= 32) b--;
   return value.slice(a, b);
 };
+export const javaIsBlank = (value: string) =>
+  Array.from(value).every((character) => {
+    const code = character.codePointAt(0)!;
+    return (
+      (code >= 9 && code <= 13) ||
+      (code >= 0x1c && code <= 0x20) ||
+      code === 0x1680 ||
+      (code >= 0x2000 && code <= 0x2006) ||
+      (code >= 0x2008 && code <= 0x200a) ||
+      [0x2028, 0x2029, 0x205f, 0x3000].includes(code)
+    );
+  });
 export const unreadable = () => new Error('Unreadable question request');
 export function object(value: unknown): JsonRecord {
   if (!value || typeof value !== 'object' || Array.isArray(value))

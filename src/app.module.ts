@@ -1,3 +1,14 @@
+import { AssessmentExpiryService } from './assessment/expiry.service.js';
+import { AssessmentCatalogController } from './assessment/catalog.controller.js';
+import { AssessmentCatalogService } from './assessment/catalog.service.js';
+import { AssessmentTakingController } from './assessment/taking.controller.js';
+import { AssessmentTakingService } from './assessment/taking.service.js';
+import { AssessmentAuthoringController } from './assessment/authoring.controller.js';
+import { AssessmentAuthoringService } from './assessment/authoring.service.js';
+import { AssessmentGuard } from './assessment/assessment.guard.js';
+import { VocabularyController } from './vocabulary/vocabulary.controller.js';
+import { VocabularyService } from './vocabulary/vocabulary.service.js';
+import { VocabularyGuard } from './vocabulary/vocabulary.guard.js';
 import { AcademicWorkflowService } from './academic-write/workflow.service.js';
 import {
   AcademicWorkflowWriteController,
@@ -26,6 +37,10 @@ import { QuestionReadService } from './read-api/question.service.js';
 
 @Module({
   controllers: [
+    AssessmentCatalogController,
+    AssessmentTakingController,
+    AssessmentAuthoringController,
+    VocabularyController,
     AcademicWorkflowWriteController,
     AcademicWorkflowReadController,
     QuestionWriteController,
@@ -37,6 +52,13 @@ import { QuestionReadService } from './read-api/question.service.js';
     AcademicReadController,
   ],
   providers: [
+    AssessmentExpiryService,
+    AssessmentCatalogService,
+    AssessmentTakingService,
+    AssessmentAuthoringService,
+    AssessmentGuard,
+    VocabularyService,
+    VocabularyGuard,
     AcademicWorkflowService,
     QuestionWriteService,
     ResourceWriteService,

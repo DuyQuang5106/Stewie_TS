@@ -97,3 +97,12 @@ The old api-ts tree is retained until this import is reviewed and accepted.
 Current contract and endpoint inventory: [docs/ACADEMIC_CONTENT_CONTRACT.md](docs/ACADEMIC_CONTENT_CONTRACT.md). Review queue/history reads, 14 catalog write routes and 9 Stimuli/Question Banks and 8 Question write routes are implemented. Review decisions and all four import/export routes are implemented. The parity suite asserts 1057 comparisons plus rollback/concurrency checks. See the contract for the retained concurrent-import limitation.
 
 Academic Content writes are opt-in. Use a dedicated development database and credentials that have the required write rights before enabling the flag. The application does not grant PostgreSQL privileges or migrate schema. See the contract for the tested Java error behavior.
+
+
+## Vocabulary and Assessment continuation
+
+Implemented 10 Vocabulary and 33 Assessment routes on top of the merged Academic Content foundation. Contracts and review notes: [Vocabulary](docs/VOCABULARY_CONTRACT.md), [Assessment](docs/ASSESSMENT_CONTRACT.md), [migration review](docs/DOMAIN_MIGRATION_REVIEW.md).
+
+All new routes are disabled by default. A dedicated development database must already have the Java-managed schema. Enable READ_API_ENABLED with the compatible JWT secret, then VOCABULARY_API_ENABLED and/or ASSESSMENT_API_ENABLED as needed. Each domain checks its own write permission flag independently. Do not enable ASSESSMENT_SCHEDULER_ENABLED while Java still runs expiry jobs on the same database.
+
+The CI parity job uses a local dictionary stub for deterministic lookup tests. The full mandatory parity suite now registers 1462 comparisons: the previous 1057 plus 135 Vocabulary, 69 Assessment authoring, 139 taking/result and 62 catalog/history/stats. Independent assertions cover optimistic review races, concurrent submit idempotency, late rollback, exact numeric grading, expiry sweeps and stale-deadline/extension locking. These counts describe bounded test coverage, not a production traffic switch or a proof for every input/clock boundary.
