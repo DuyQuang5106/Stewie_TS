@@ -8,6 +8,7 @@ const { Pool } = require('pg');
 const jwt = require('jsonwebtoken');
 const { createApp } = await import('../../dist/app.js');
 const { DatabaseService } = await import('../../dist/database.service.js');
+const { AuthService } = await import('../../dist/auth/auth.service.js');
 const { AssessmentExpiryService } =
   await import('../../dist/assessment/expiry.service.js');
 
@@ -30,6 +31,7 @@ test(
     const envBefore = { ...process.env };
     process.env.DATABASE_URL = target.toString();
     process.env.READ_API_ENABLED = 'true';
+    process.env.CORS_ALLOWED_ORIGINS = 'http://localhost:3000';
     process.env.APP_JWTSECRET = secret;
     const db = new Pool({
       connectionString: target.toString(),
@@ -370,6 +372,24 @@ test(
       });
       assert.equal(analytics, 135, 'All student analytics cases must run');
       console.log('Compared ' + analytics + ' student analytics contracts');
+      const auth = await require('../auth-parity.cjs')({
+        AuthService,
+        DatabaseService,
+        baseline,
+        migrated,
+        identities,
+        db,
+        app,
+      });
+      assert.equal(auth, 55, 'All Auth session cases must run');
+      process.stdout.write('Compared ' + auth + ' Auth session cases\n');
+      const google = await require('../google-oauth-parity.cjs')({
+        baseline,
+        migrated,
+        db,
+      });
+      assert.equal(google, 30, 'All Google OIDC cases must run');
+      process.stdout.write('Compared ' + google + ' Google OIDC cases\n');
       await db.query('UPDATE users SET deleted_at = NOW() WHERE id = $1', [
         student.id,
       ]);

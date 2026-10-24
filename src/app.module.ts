@@ -1,3 +1,8 @@
+import { RefreshCleanupService } from './auth/refresh-cleanup.service.js';
+import { AuthController } from './auth/auth.controller.js';
+import { AuthService } from './auth/auth.service.js';
+import { AuthGuard } from './auth/auth.guard.js';
+import { GoogleOAuthService } from './auth/google-oauth.service.js';
 import { StudentAnalyticsController } from './analytics/analytics.controller.js';
 import { StudentAnalyticsService } from './analytics/analytics.service.js';
 import { AnalyticsGuard } from './analytics/analytics.guard.js';
@@ -40,6 +45,7 @@ import { QuestionReadService } from './read-api/question.service.js';
 
 @Module({
   controllers: [
+    AuthController,
     StudentAnalyticsController,
     AssessmentCatalogController,
     AssessmentTakingController,
@@ -56,6 +62,10 @@ import { QuestionReadService } from './read-api/question.service.js';
     AcademicReadController,
   ],
   providers: [
+    RefreshCleanupService,
+    AuthService,
+    AuthGuard,
+    GoogleOAuthService,
     StudentAnalyticsService,
     AnalyticsGuard,
     AssessmentExpiryService,

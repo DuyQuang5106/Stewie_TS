@@ -134,3 +134,42 @@ DB exposed unordered ties in old Academic fixtures; the clean DB run reproduced
 CI's fresh-database conditions and passed. Existing product databases were not used.
 Docker image build and runtime smoke PASS: non-root, health, DB stop/restart,
 SIGTERM and JSON logs. Remote CI status is separate and will be checked on the PR.
+
+## Authentication continuation — 2026-10-24
+
+Branch feat/auth-migration starts from merged Analytics PR #3 (main ce035d4).
+Implemented refresh/logout, separately gated dev login, Google OIDC authorization
+and callback, shared cookie/JWT issuance and independently gated token cleanup.
+Auth writes reuse the existing Java schema and require their own default-off flag.
+The only new direct dependency is openid-client 6.8.8, resolved in bun.lock with
+its jose/oauth4webapi dependencies. Docker frozen installs/build/runtime smoke pass.
+
+55 session cases and 30 OIDC cases are added to the mandatory suite: 1,682 total.
+The OIDC mock has real RSA signatures and runs at localhost:18083 for both Java
+and TypeScript. CI now directs only its Java test provider endpoints to that mock
+and explicitly aligns JWT lifetime, CORS and frontend redirect. Production Google
+issuer overrides are forbidden; no real provider credential was used.
+
+Observed standalone runs passed session rotation/replay/cookie/logout/concurrent
+and cross-backend refresh checks; 30 complete OIDC cases passed on both backends.
+The first combined run exposed a Vitest/native-import class identity issue in the
+cleanup fixture. It was fixed by passing the application provider class from the
+Vitest entry point. Combined regression then passed before the final late-insert
+rollback case was added. Final regression evidence and remote CI are recorded
+separately once observed. Contract, deployment settings and preserved source
+limitations are documented in AUTH_CONTRACT.md.
+
+This batch does not deploy Google login, register a real callback, transfer cron
+ownership, change schema or switch production traffic. A real browser login in
+staging remains a deployment acceptance step.
+
+Final verification on the completed batch: typecheck and lint exit 0; 6
+unit/foundation tests PASS; 1 starter e2e PASS; both PostgreSQL integration files
+PASS, exit 0, duration 54.94s. Exact count assertions required all 1,682 cases:
+1,597 existing + 55 Auth sessions + 30 OIDC flows. The final OIDC additions verify
+email_verified takes precedence over legacy verified_email, matching Java.
+Late token-insert failure rolled back the used-token UPDATE and allowed a retry.
+Hash-only storage, persisted reuse invalidation and cross-backend refresh passed.
+The Docker image and runtime smoke checks passed (non-root, health, PostgreSQL
+stop/restart, SIGTERM and JSON logs). Remote CI will be observed on the draft PR;
+no live Google/staging login or production routing change was performed.

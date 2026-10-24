@@ -31,7 +31,8 @@ export async function createApp() {
           request.path,
         );
       if (
-        (catalogWrite ||
+        (request.path.startsWith('/api/auth/') ||
+          catalogWrite ||
           workflowWrite ||
           (['POST', 'PUT'].includes(request.method) &&
             /^\/api\/(?:vocab|assessments)(?:\/|$)/.test(request.path))) &&
@@ -45,6 +46,32 @@ export async function createApp() {
     },
   );
   app.enableCors({ origin: config.corsOrigins, credentials: true });
+  app.use((request: Request, response: Response, next: NextFunction) => {
+    if (
+      !request.path.startsWith('/api/auth/') ||
+      ['GET', 'HEAD', 'OPTIONS', 'TRACE'].includes(request.method) ||
+      request.headers.authorization?.startsWith('Bearer ')
+    )
+      return next();
+    let origin = request.headers.origin;
+    const referer = request.headers.referer;
+    if (origin === undefined && referer !== undefined) {
+      try {
+        origin = new URL(referer).origin;
+      } catch {
+        origin = 'null';
+      }
+    }
+    if (origin === undefined || config.corsOrigins.includes(origin))
+      return next();
+    return response
+      .status(403)
+      .json({
+        status: 403,
+        error: 'Forbidden',
+        message: 'Nguồn yêu cầu không được phép',
+      });
+  });
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

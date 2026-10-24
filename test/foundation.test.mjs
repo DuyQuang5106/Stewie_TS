@@ -8,6 +8,30 @@ const { createApp } = await import('../dist/app.js');
 test('rejects invalid config without including credentials in errors', () => {
   for (const env of [
     {},
+    {
+      DATABASE_URL: 'postgres://localhost/db',
+      READ_API_ENABLED: 'true',
+      APP_JWTSECRET: 'test-secret-at-least-thirty-two-bytes',
+      AUTH_API_ENABLED: 'true',
+      NODE_ENV: 'production',
+      CORS_ALLOWED_ORIGINS: 'https://app.test',
+    },
+    {
+      DATABASE_URL: 'postgres://localhost/db',
+      READ_API_ENABLED: 'true',
+      APP_JWTSECRET: 'test-secret-at-least-thirty-two-bytes',
+      AUTH_API_ENABLED: 'true',
+      AUTH_DEV_LOGIN_ENABLED: 'true',
+      AUTH_COOKIE_SECURE: 'true',
+      NODE_ENV: 'production',
+      CORS_ALLOWED_ORIGINS: 'https://app.test',
+    },
+
+    { DATABASE_URL: 'postgres://localhost/db', AUTH_API_ENABLED: 'true' },
+    { DATABASE_URL: 'postgres://localhost/db', AUTH_DEV_LOGIN_ENABLED: 'true' },
+    { DATABASE_URL: 'postgres://localhost/db', AUTH_CLEANUP_ENABLED: 'yes' },
+    { DATABASE_URL: 'postgres://localhost/db', GOOGLE_OAUTH_ENABLED: 'true' },
+
     { DATABASE_URL: 'postgres://localhost/db', ANALYTICS_API_ENABLED: 'true' },
     { DATABASE_URL: 'postgres://localhost/db', ANALYTICS_API_ENABLED: 'yes' },
     { DATABASE_URL: 'postgres://localhost/db', VOCABULARY_API_ENABLED: 'yes' },
@@ -112,8 +136,18 @@ test('HTTP liveness, DB readiness, CORS and unknown routes', async () => {
     assert.equal((await fetch(`${base}/api/users/me`)).status, 404);
     assert.equal((await fetch(`${base}/api/vocab/playlists`)).status, 404);
     assert.equal((await fetch(`${base}/api/assessments`)).status, 404);
+    for (const path of [
+      '/api/auth/refresh',
+      '/api/auth/logout',
+      '/api/auth/dev-login',
+    ])
+      assert.equal((await fetch(base + path, { method: 'POST' })).status, 404);
+    assert.equal(
+      (await fetch(base + '/oauth2/authorization/google')).status,
+      404,
+    );
     const { DatabaseService } = await import('../dist/database.service.js');
-    for (const domain of ['vocabulary', 'assessment'])
+    for (const domain of ['vocabulary', 'assessment', 'auth'])
       await assert.rejects(
         app.get(DatabaseService).writeTransaction(async () => {}, domain),
         /writes are disabled/,
