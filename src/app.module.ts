@@ -1,3 +1,6 @@
+import { StudentAnalyticsController } from './analytics/analytics.controller.js';
+import { StudentAnalyticsService } from './analytics/analytics.service.js';
+import { AnalyticsGuard } from './analytics/analytics.guard.js';
 import { AssessmentExpiryService } from './assessment/expiry.service.js';
 import { AssessmentCatalogController } from './assessment/catalog.controller.js';
 import { AssessmentCatalogService } from './assessment/catalog.service.js';
@@ -37,6 +40,7 @@ import { QuestionReadService } from './read-api/question.service.js';
 
 @Module({
   controllers: [
+    StudentAnalyticsController,
     AssessmentCatalogController,
     AssessmentTakingController,
     AssessmentAuthoringController,
@@ -52,6 +56,8 @@ import { QuestionReadService } from './read-api/question.service.js';
     AcademicReadController,
   ],
   providers: [
+    StudentAnalyticsService,
+    AnalyticsGuard,
     AssessmentExpiryService,
     AssessmentCatalogService,
     AssessmentTakingService,

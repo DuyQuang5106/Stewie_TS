@@ -1,36 +1,23 @@
-> Historical source documentation imported from stiu_base/api-ts. See the root README for commands in this repository.
+﻿# Current migration status — 2026-10-24
 
-# API migration status
+This describes implementation and verification, not deployed traffic.
 
-Updated 2026-10-19. This tracks source/test progress, not deployed traffic.
-
-| Scope | State |
+| Scope | Current state |
 | --- | --- |
-| Java analytics reconciliation | Merged via PR #15 |
-| TypeScript foundation, Docker and CI | Merged via PR #16 |
-| Java JWT verification, GET users/me, topics and skills | Merged via PR #17; CI passed |
-| GET users/all, users/by-email, users/{id} | Merged via PR #18; 149 differential HTTP checks and CI passed |
-| Tags/groups, stimuli, question banks, author/public questions and versions reads | Implemented on feat/typescript-academic-reads; expanded suite of 510 HTTP checks passes locally; see PR checks for CI |
-| Quality-review reads, import/export and Academic Content writes | Not migrated |
-| Vocabulary | Not migrated |
-| Assessment | Not migrated |
-| Analytics | Not migrated |
-| OAuth2, token issuance, refresh, logout | Still Java |
-| Staging deployment and traffic cutover | Not performed |
+| Foundation and Identity reads | Merged in Stewie_TS |
+| Academic Content | All 53 inventoried routes merged, PR #1 |
+| Vocabulary | All 10 inventoried routes merged, PR #2 |
+| Assessment | All 33 inventoried routes and opt-in expiry worker merged, PR #2 |
+| Student Analytics | 7 GET routes implemented on feat/student-analytics-migration; awaiting PR review |
+| Full Auth | Token issuance, Google OAuth2, refresh/logout still Java |
+| Staging and route cutover | Not deployed or switched by this work |
 
-Identity reads use the existing READ_API_ENABLED switch (false by default),
-the shared Java JWT secret and read-only PostgreSQL transactions. List/id/email
-lookups are ADMIN-only. users/me remains available to any authenticated user.
-Full user responses include createdAt, updatedAt and lastAccessAt, matching Java;
-they do not expose phone numbers or authentication data. Soft-deleted users are
-excluded. Pagination uses the same content/page shape as classification reads.
+The required differential suite has 1,597 cases. Actual observed verification
+results are recorded in [IMPORT_VERIFICATION.md](../IMPORT_VERIFICATION.md).
+Contracts: [Academic](../ACADEMIC_CONTENT_CONTRACT.md),
+[Vocabulary](../VOCABULARY_CONTRACT.md), [Assessment](../ASSESSMENT_CONTRACT.md),
+[Analytics](../ANALYTICS_CONTRACT.md).
 
-The differential suite compares Java and TypeScript HTTP status and JSON for
-ADMIN, TEACHER and STUDENT; validates missing/invalid ids/emails, not-found errors,
-pagination, allowed sort fields and deleted-user visibility. Dynamic error
-timestamps and role array ordering are normalized. Test fixtures are written only
-to disposable stiu_read_api_test; application transactions remain read-only.
-
-Review/deploy sequence: review the current PR and merge when accepted; continue
-with quality-review/import/export and Academic Content writes in separate batches. Before changing routing, run
-staging smoke tests and approve a route-specific cutover with rollback to Java.
+All domain flags remain false by default. Java owns schema/migrations. Before
+switching traffic, validate staging and decide which backend owns background
+expiry; no simultaneous Java/TypeScript expiry workers on the same DB.

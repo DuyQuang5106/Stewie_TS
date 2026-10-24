@@ -11,3 +11,5 @@ process.env.VOCABULARY_API_ENABLED = 'false';
 process.env.ASSESSMENT_API_ENABLED = 'false';
 
 process.env.ASSESSMENT_SCHEDULER_ENABLED = 'false';
+
+process.env.ANALYTICS_API_ENABLED = 'false';

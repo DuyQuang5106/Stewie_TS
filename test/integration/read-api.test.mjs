@@ -362,6 +362,14 @@ test(
       process.stdout.write(
         'Compared ' + catalog + ' assessment catalog contracts\n',
       );
+      const analytics = await require('../analytics-parity.cjs')({
+        baseline,
+        migrated,
+        identities,
+        db,
+      });
+      assert.equal(analytics, 135, 'All student analytics cases must run');
+      console.log('Compared ' + analytics + ' student analytics contracts');
       await db.query('UPDATE users SET deleted_at = NOW() WHERE id = $1', [
         student.id,
       ]);

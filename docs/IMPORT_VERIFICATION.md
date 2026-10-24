@@ -106,3 +106,31 @@ Grading cases cover rational equivalence, malformed/exponent/zero-denominator in
 Known source behaviors retained: provisional legacy scores may appear in history/stats according to release policy while result/review still require final grading; card difficulty follows current question difficulty instead of the pinned version; start-next-section's expired-attempt submit is rolled back when Java subsequently throws. Details and review instructions are in VOCABULARY_CONTRACT.md, ASSESSMENT_CONTRACT.md and DOMAIN_MIGRATION_REVIEW.md. The previous Academic import concurrency limitation is not changed by this continuation.
 
 CI workflow now points Java dictionary lookup to localhost:18082 for deterministic parity tests; no external dictionary dependency is needed by CI. The parity timeout was raised to 180 seconds for the expanded suite; individual requests/DB timeouts remain bounded. Worker scheduling is not enabled for existing databases, and no production/staging schema, traffic, real credential or Java source was changed. No merge or deploy is performed. Remote checks must be observed separately after pushing this branch.
+## Student Analytics continuation (2026-10-24)
+
+PR #2 is merged on main at 45119bf. Branch feat/student-analytics-migration adds
+all seven inventoried Student Analytics GET routes behind ANALYTICS_API_ENABLED
+(default false) plus the existing read/JWT gate. See ANALYTICS_CONTRACT.md for the
+contract and preserved Java policies. No write domain, dependency or migration is
+introduced. All Analytics transactions remain read-only.
+
+The first complete regression run passed typecheck, lint, six unit/foundation
+tests, one e2e and both integration files with 1,588 comparisons. Review then
+added nine targeted cases and preserved database microseconds plus nanosecond
+range ordering/previous-period arithmetic. The expanded standalone Analytics
+suite passed 135 comparisons, including snapshot classification, deleted
+assessments, persisted microsecond timestamps and narrow explicit time windows.
+The mandatory combined suite now asserts 1,597 comparisons (1,462 existing + 135
+Analytics). Final regression and remote CI evidence will be recorded after running.
+
+Only disposable PostgreSQL 17 databases stiu_read_api_test and stiu_ci were used.
+No existing application database, real credential, Java source, deployment or
+traffic routing changed. Full token issuance/OAuth/refresh/logout remains Java.
+
+Final clean-database regression: typecheck=0, lint=0, 6 unit/foundation tests PASS,
+1 e2e PASS, both integration files PASS (71.23s, exit 0). All 1,597 comparisons
+were required by exact count assertions. A rerun on the previously populated test
+DB exposed unordered ties in old Academic fixtures; the clean DB run reproduced
+CI's fresh-database conditions and passed. Existing product databases were not used.
+Docker image build and runtime smoke PASS: non-root, health, DB stop/restart,
+SIGTERM and JSON logs. Remote CI status is separate and will be checked on the PR.

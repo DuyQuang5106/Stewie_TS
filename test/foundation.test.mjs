@@ -8,6 +8,8 @@ const { createApp } = await import('../dist/app.js');
 test('rejects invalid config without including credentials in errors', () => {
   for (const env of [
     {},
+    { DATABASE_URL: 'postgres://localhost/db', ANALYTICS_API_ENABLED: 'true' },
+    { DATABASE_URL: 'postgres://localhost/db', ANALYTICS_API_ENABLED: 'yes' },
     { DATABASE_URL: 'postgres://localhost/db', VOCABULARY_API_ENABLED: 'yes' },
     { DATABASE_URL: 'postgres://localhost/db', ASSESSMENT_API_ENABLED: 'true' },
     {
