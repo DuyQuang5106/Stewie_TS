@@ -39,7 +39,7 @@ export class DatabaseService implements OnApplicationShutdown {
 
   async writeTransaction<T>(
     work: (client: PoolClient) => Promise<T>,
-    domain: 'academic' | 'vocabulary' | 'assessment' = 'academic',
+    domain: 'academic' | 'vocabulary' | 'assessment' | 'auth' = 'academic',
   ): Promise<T> {
     const config = readConfig();
     const enabled =
@@ -47,7 +47,9 @@ export class DatabaseService implements OnApplicationShutdown {
         ? config.academicWriteApiEnabled
         : domain === 'vocabulary'
           ? config.vocabularyApiEnabled
-          : config.assessmentApiEnabled;
+          : domain === 'auth'
+            ? config.authApiEnabled
+            : config.assessmentApiEnabled;
     if (!enabled) throw new Error(domain + ' writes are disabled');
     const client = await this.pool.connect();
     try {

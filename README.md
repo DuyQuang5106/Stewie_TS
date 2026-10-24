@@ -108,3 +108,5 @@ All new routes are disabled by default. A dedicated development database must al
 The CI parity job uses a local dictionary stub for deterministic lookup tests. The full mandatory parity suite now registers 1462 comparisons: the previous 1057 plus 135 Vocabulary, 69 Assessment authoring, 139 taking/result and 62 catalog/history/stats. Independent assertions cover optimistic review races, concurrent submit idempotency, late rollback, exact numeric grading, expiry sweeps and stale-deadline/extension locking. These counts describe bounded test coverage, not a production traffic switch or a proof for every input/clock boundary.
 
 Student Analytics (7 read routes) is documented in [ANALYTICS_CONTRACT.md](docs/ANALYTICS_CONTRACT.md). Enable ANALYTICS_API_ENABLED alongside READ_API_ENABLED; both default off. This does not switch deployed traffic.
+
+Authentication routes and Google setup are documented in [AUTH_CONTRACT.md](docs/AUTH_CONTRACT.md). Auth, dev login, Google login and cleanup each remain disabled by default. Real Google login and staging cutover require deployment credentials and browser verification.
