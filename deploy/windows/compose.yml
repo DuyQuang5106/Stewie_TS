@@ -1,0 +1,99 @@
+name: stiu-server
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  database:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB}
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      TZ: ${TZ:-Etc/UTC}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U postgres -d "$${POSTGRES_DB}"']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    logging: *logging
+
+  backend:
+    image: ${BACKEND_IMAGE:?Set BACKEND_IMAGE}
+    build:
+      context: ../..
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: "3001"
+      TZ: ${TZ:-Etc/UTC}
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL}
+      APP_JWTSECRET: ${APP_JWTSECRET:?Set APP_JWTSECRET}
+      CORS_ALLOWED_ORIGINS: ${PUBLIC_ORIGIN:?Set PUBLIC_ORIGIN}
+      READ_API_ENABLED: "true"
+      ACADEMIC_WRITE_API_ENABLED: "true"
+      VOCABULARY_API_ENABLED: "true"
+      ASSESSMENT_API_ENABLED: "true"
+      ANALYTICS_API_ENABLED: "true"
+      AUTH_API_ENABLED: "true"
+      AUTH_DEV_LOGIN_ENABLED: "false"
+      AUTH_COOKIE_SECURE: "true"
+      GOOGLE_OAUTH_ENABLED: "true"
+      GOOGLE_CALLBACK_URI: ${PUBLIC_ORIGIN}/login/oauth2/code/google
+      APP_OAUTH2_REDIRECTURI: ${PUBLIC_ORIGIN}/oauth2/redirect
+      SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?Set GOOGLE_CLIENT_ID}
+      SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:?Set GOOGLE_CLIENT_SECRET}
+      ASSESSMENT_SCHEDULER_ENABLED: ${ASSESSMENT_SCHEDULER_ENABLED:-false}
+      AUTH_CLEANUP_ENABLED: ${AUTH_CLEANUP_ENABLED:-false}
+    depends_on:
+      database:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3001/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    logging: *logging
+
+  frontend:
+    image: ${FRONTEND_IMAGE:?Set FRONTEND_IMAGE}
+    build:
+      context: ../../../stiu_fe
+      args:
+        NEXT_PUBLIC_API_URL: http://backend:3001
+        NEXT_PUBLIC_API_MOCK: "0"
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/login').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    logging: *logging
+
+  tunnel:
+    image: ${CLOUDFLARED_IMAGE:-cloudflare/cloudflared:latest}
+    profiles: [public]
+    restart: unless-stopped
+    command: [tunnel, --no-autoupdate, run]
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:-}
+    depends_on:
+      frontend:
+        condition: service_healthy
+    logging: *logging
+
+volumes:
+  postgres_data:
